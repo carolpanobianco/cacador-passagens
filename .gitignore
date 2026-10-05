@@ -2,5 +2,5 @@
 .venv/
 __pycache__/
 demo.db
-dashboard.html
-site/
+/dashboard.html
+/site/

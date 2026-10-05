@@ -44,8 +44,6 @@ regras:
 blogs:                           # sites que garimpam promoções (sem chave, de graça)
   - nome: Melhores Destinos
     feed: https://www.melhoresdestinos.com.br/feed
-  - nome: Passagens Imperdíveis
-    feed: https://passagensimperdiveis.com.br/feed
 
 alertas:
   telegram: true                 # precisa TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env

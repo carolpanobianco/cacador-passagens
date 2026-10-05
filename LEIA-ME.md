@@ -8,7 +8,7 @@ Vigia as rotas que você escolher, aprende quanto cada uma costuma custar e te a
 |---|---|---|
 | **Google Flights** (via SerpApi) | Azul, LATAM, GOL, American, Copa, Delta, United… e as OTAs. Também informa a faixa de preço "típica" da rota | Grátis até 250 buscas/mês |
 | **Aviasales** (via Travelpayouts) | Varre meses inteiros e acha as datas mais baratas (preços que outros viajantes viram nas últimas 48h) | Grátis |
-| **Melhores Destinos / Passagens Imperdíveis** | Promoções relâmpago e erros tarifários garimpados pelos blogs | Grátis, sem cadastro |
+| **Melhores Destinos** | Promoções relâmpago e erros tarifários garimpados pelos blogs | Grátis, sem cadastro |
 
 Skyscanner, Azul, Kayak e Decolar não têm API aberta e bloqueiam robôs, então cada promoção já vem com **links prontos pra esses sites, com rota e datas preenchidas** — um toque e você confere lá.
 
