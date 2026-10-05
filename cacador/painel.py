@@ -30,47 +30,58 @@ def _oferta(o):
             "ida": o.ida.isoformat() if o.ida else None,
             "volta": o.volta.isoformat() if o.volta else None,
             "noites": o.noites, "preco": o.preco, "cia": o.cia, "escalas": o.escalas,
-            "fonte": o.fonte, "cache": o.preco_cache, "titulo": o.titulo, "links": _links(o)}
+            "fonte": o.fonte, "cache": o.preco_cache, "titulo": o.titulo, "link": o.link}
 
 
 def dados(cfg, promos, ofertas, normais, hist, status_fontes, avisos, demo=False):
     rotas = cfg["rotas"]
     voos = [o for o in ofertas if o.ida and o.preco > 0]
 
-    # as 30 mais baratas de cada rota (sem repetir mesmo voo/datas)
+    # por rota e por aeroporto de saída: as 12 mais baratas (sem repetir o mesmo voo)
     tabela = []
     for r in rotas:
-        vistos, n = set(), 0
-        for o in sorted((o for o in voos if o.rota == r["nome"]), key=lambda o: o.preco):
-            k = (o.origem, o.ida, o.volta, o.cia)
-            if k in vistos:
-                continue
-            vistos.add(k); tabela.append(_oferta(o)); n += 1
-            if n >= 30:
-                break
+        for origem in r["origens"]:
+            vistos, n = set(), 0
+            for o in sorted((o for o in voos if o.rota == r["nome"] and o.origem == origem), key=lambda o: o.preco):
+                k = (o.ida, o.volta, o.cia, o.destino)
+                if k in vistos:
+                    continue
+                vistos.add(k); tabela.append(_oferta(o)); n += 1
+                if n >= 12:
+                    break
 
-    por_mes = {}
-    for r in rotas:
-        meses = {}
-        for o in voos:
-            if o.rota == r["nome"]:
-                m = o.ida.strftime("%Y-%m")
-                meses[m] = min(meses.get(m, o.preco), o.preco)
-        por_mes[r["nome"]] = sorted(meses.items())
+    # menor preço por mês de ida, por rota e aeroporto de saída
+    por_mes = {r["nome"]: {} for r in rotas}
+    # melhor preço de cada companhia, por rota e aeroporto de saída
+    companhias = {r["nome"]: {} for r in rotas}
+    for o in voos:
+        if o.rota not in por_mes:
+            continue
+        m = o.ida.strftime("%Y-%m")
+        pm = por_mes[o.rota].setdefault(o.origem, {})
+        pm[m] = min(pm.get(m, o.preco), o.preco)
+        for cia in (o.cia or "?").split(" + ") if o.fonte == "Google Flights" and " + " in (o.cia or "") else [o.cia or "?"]:
+            pc = companhias[o.rota].setdefault(o.origem, {})
+            if cia not in pc or o.preco < pc[cia]["preco"]:
+                pc[cia] = {"preco": o.preco, "ida": o.ida.isoformat(), "volta": o.volta.isoformat() if o.volta else None,
+                           "fonte": o.fonte, "escalas": o.escalas, "parceira": o.cia if " + " in (o.cia or "") else ""}
 
     return {
         "gerado_em": datetime.now().isoformat(timespec="minutes"),
         "demo": demo,
         "regras": {"desconto_minimo": cfg.get("regras", {}).get("desconto_minimo", 0.4),
                    "desconto_imperdivel": cfg.get("regras", {}).get("desconto_imperdivel", 0.6)},
-        "rotas": [{"nome": r["nome"], "origens": r["origens"], "destino": r["destino"],
-                   "normal": normais[r["nome"]][0], "base": normais[r["nome"]][1]} for r in rotas],
+        "rotas": [{"nome": r["nome"], "regiao": r.get("regiao", "Outros"), "origens": r["origens"],
+                   "destinos": r["destinos"], "chegada": r.get("google") or ",".join(r["destinos"]),
+                   "normal": normais[r["nome"]][0], "base": normais[r["nome"]][1],
+                   "tipico": hist.tipico(r["nome"]), "noites": r.get("noites")} for r in rotas],
         "promocoes": [{**_oferta(p.oferta), "nivel": p.nivel, "desconto": round(p.desconto, 3),
                        "normal": p.preco_normal} for p in promos],
         "ofertas": tabela,
-        "historico": {r["nome"]: hist.serie(r["nome"]) for r in rotas},
         "por_mes": por_mes,
-        "posts": [_oferta(o) for o in ofertas if o.titulo][:30],
+        "companhias": companhias,
+        "historico": {r["nome"]: hist.serie(r["nome"]) for r in rotas},
+        "posts": [_oferta(o) for o in ofertas if o.titulo][:40],
         "fontes": status_fontes,
         "avisos": avisos[:15],
     }

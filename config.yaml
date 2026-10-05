@@ -1,44 +1,149 @@
 # ===========================================================
 #  CAÇADOR DE PASSAGENS — configuração
-#  Edite as rotas abaixo. Preços sempre IDA E VOLTA, por pessoa, em R$.
+#  Preços sempre IDA E VOLTA, por pessoa, em R$, saindo de Guarulhos (GRU) ou Viracopos (VCP).
 # ===========================================================
 
 moeda: BRL
-adultos: 1
+origens: [GRU, VCP]          # vale pra todas as rotas
+meses_a_frente: 9            # olha sempre os próximos 9 meses (vai rolando sozinho)
+
+# preco_normal  -> o que VOCÊ considera normal. Se preencher, ele manda.
+# referencia    -> estimativa inicial. Só é usada até o programa aprender o preço real da rota
+#                  (histórico dos últimos 60 dias ou a faixa "típica" do Google Flights).
+# destinos      -> aeroportos (ou código da cidade) de chegada.
 
 rotas:
+  # ---------------- EUA
   - nome: Orlando
-    origens: [GRU, VCP]          # Guarulhos e Viracopos
-    destino: MCO
-    preco_normal: 3000           # quanto costuma custar. Deixe vazio (~) pra o programa aprender sozinho
-    meses: ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"]
-    noites_min: 5
-    noites_max: 15
-    palavras_blog: [orlando, mco, disney]
+    regiao: EUA
+    destinos: [MCO]
+    preco_normal: 3000
+    noites: [5, 15]
+    palavras_blog: [orlando, disney]
 
   - nome: Miami
-    origens: [GRU, VCP]
-    destino: MIA
+    regiao: EUA
+    destinos: [MIA]
     preco_normal: 2800
-    meses: ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"]
-    noites_min: 4
-    noites_max: 15
-    palavras_blog: [miami, fort lauderdale, flórida, florida]
+    noites: [4, 15]
+    palavras_blog: [miami, fort lauderdale]
 
-  # Exemplo de rota extra (tire o # pra ativar)
-  # - nome: Lisboa
-  #   origens: [GRU, VCP]
-  #   destino: LIS
-  #   preco_normal: 4500
-  #   meses: ["2027-03", "2027-04", "2027-05"]
-  #   noites_min: 7
-  #   noites_max: 20
-  #   palavras_blog: [lisboa, portugal]
+  - nome: Nova York
+    regiao: EUA
+    destinos: [NYC]                 # JFK, Newark e LaGuardia
+    google: "JFK,EWR,LGA"
+    referencia: 3800
+    noites: [4, 15]
+    palavras_blog: [nova york, new york, nova iorque]
+
+  - nome: Los Angeles
+    regiao: EUA
+    destinos: [LAX]
+    referencia: 4500
+    noites: [5, 18]
+    palavras_blog: [los angeles, califórnia, california]
+
+  # ---------------- Nordeste
+  - nome: Salvador
+    regiao: Nordeste
+    destinos: [SSA]
+    referencia: 1000
+    noites: [3, 12]
+    palavras_blog: [salvador, bahia]
+
+  - nome: Recife / Porto de Galinhas
+    regiao: Nordeste
+    destinos: [REC]
+    referencia: 1100
+    noites: [3, 12]
+    palavras_blog: [recife, porto de galinhas, pernambuco]
+
+  - nome: Maceió
+    regiao: Nordeste
+    destinos: [MCZ]
+    referencia: 1100
+    noites: [3, 12]
+    palavras_blog: [maceió, maceio, maragogi, alagoas]
+
+  - nome: Fortaleza / Jeri
+    regiao: Nordeste
+    destinos: [FOR]
+    referencia: 1200
+    noites: [3, 12]
+    palavras_blog: [fortaleza, jericoacoara, ceará, ceara]
+
+  - nome: Natal
+    regiao: Nordeste
+    destinos: [NAT]
+    referencia: 1200
+    noites: [3, 12]
+    palavras_blog: [para natal, natal (rn), natal/rn, pipa]
+
+  # ---------------- América do Sul
+  - nome: Santiago
+    regiao: América do Sul
+    destinos: [SCL]
+    referencia: 1700
+    noites: [3, 12]
+    palavras_blog: [santiago, chile]
+
+  - nome: Buenos Aires
+    regiao: América do Sul
+    destinos: [BUE]                 # Aeroparque (no centro) e Ezeiza
+    google: "AEP,EZE"
+    referencia: 1400
+    noites: [3, 10]
+    palavras_blog: [buenos aires, argentina]
+
+  # ---------------- Europa
+  - nome: Roma
+    regiao: Europa
+    destinos: [FCO]
+    referencia: 5000
+    noites: [7, 21]
+    palavras_blog: [roma, itália, italia]
+
+  - nome: Madri
+    regiao: Europa
+    destinos: [MAD]
+    referencia: 4500
+    noites: [7, 21]
+    palavras_blog: [madri, madrid, espanha]
+
+  - nome: Croácia
+    regiao: Europa
+    destinos: [SPU, DBV, ZAG]       # Split e Dubrovnik (litoral) e Zagreb (capital)
+    referencia: 6500
+    noites: [7, 21]
+    palavras_blog: [croácia, croacia, dubrovnik, split, zagreb]
+
+  - nome: Atenas
+    regiao: Europa
+    destinos: [ATH]                 # porta de entrada pras ilhas
+    referencia: 5800
+    noites: [7, 21]
+    palavras_blog: [atenas, grécia, grecia, santorini, mykonos]
+
+  # ---------------- Ásia
+  - nome: Tóquio
+    regiao: Ásia
+    destinos: [TYO]                 # Haneda (mais perto) e Narita
+    google: "HND,NRT"
+    referencia: 7500
+    noites: [10, 25]
+    palavras_blog: [tóquio, toquio, japão, japao]
+
+  - nome: Bali
+    regiao: Ásia
+    destinos: [DPS]
+    referencia: 8500
+    noites: [10, 25]
+    palavras_blog: [bali, indonésia, indonesia]
 
 regras:
-  desconto_minimo: 0.40          # 40% abaixo do normal = PROMOÇÃO (3000 -> alerta abaixo de 1800)
-  desconto_imperdivel: 0.60      # 60% abaixo = IMPERDÍVEL / possível erro tarifário (3000 -> abaixo de 1200)
-  confirmar_no_google: 2         # quantas datas mais baratas de cada rota conferir no Google Flights por rodada
+  desconto_minimo: 0.40          # 40% abaixo do normal = PROMOÇÃO
+  desconto_imperdivel: 0.60      # 60% abaixo = IMPERDÍVEL / possível erro tarifário
+  google_por_rodada: 4           # quantas buscas no Google Flights por rodada (4 × 2 rodadas/dia ≈ 240/mês = cota grátis)
   realertar_se_cair: 0.05        # só avisa de novo a mesma passagem se cair mais 5%
 
 blogs:                           # sites que garimpam promoções (sem chave, de graça)
@@ -46,5 +151,5 @@ blogs:                           # sites que garimpam promoções (sem chave, de
     feed: https://www.melhoresdestinos.com.br/feed
 
 alertas:
-  telegram: false                # desligado por enquanto. Pra ligar: true, e cadastre TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
-  email: false                   # precisa EMAIL_* no .env
+  telegram: false                # desligado por enquanto. Pra ligar: true, e cadastre TELEGRAM_TOKEN e TELEGRAM_CHAT_ID
+  email: false

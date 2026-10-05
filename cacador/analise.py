@@ -2,8 +2,9 @@
 
 'Preço normal' de cada rota, nesta ordem de prioridade:
   1. o valor que você colocou no config (preco_normal)
-  2. a mediana do histórico dos últimos 60 dias (depois de ~15 leituras)
+  2. a mediana do histórico dos últimos 60 dias (depois de 3 dias coletando)
   3. o meio da faixa 'típica' que o próprio Google Flights informa
+  4. a estimativa inicial do config (referencia)
 Promoção = preço <= normal × (1 - desconto_minimo).
 """
 from .modelos import Oferta, Promocao
@@ -18,6 +19,8 @@ def preco_normal(rota: dict, hist) -> tuple[float | None, str]:
     t = hist.tipico(rota["nome"])
     if t:
         return (t[0] + t[1]) / 2, "Google"
+    if rota.get("referencia"):
+        return float(rota["referencia"]), "estimativa"
     return None, ""
 
 

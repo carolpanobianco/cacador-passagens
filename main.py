@@ -8,6 +8,7 @@ Uso:
 """
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor
 import random
 import sys
 import webbrowser
@@ -55,52 +56,92 @@ def status_fontes(cfg, ofertas, erros, demo=False):
     return lst
 
 
+def preparar(cfg):
+    """Completa cada rota com o que vale pra todas: origens e os próximos N meses (janela que vai rolando)."""
+    hoje = date.today()
+    n = cfg.get("meses_a_frente", 9)
+    meses = []
+    a, m = hoje.year, hoje.month
+    for _ in range(n):
+        m += 1
+        if m > 12:
+            a, m = a + 1, 1
+        meses.append(f"{a}-{m:02d}")
+    for r in cfg["rotas"]:
+        r.setdefault("origens", cfg.get("origens", ["GRU", "VCP"]))
+        r.setdefault("meses", meses)
+        r.setdefault("noites", [4, 15])
+        if isinstance(r.get("destinos"), str):
+            r["destinos"] = [r["destinos"]]
+    return cfg
+
+
 def buscar(cfg, hist, erros):
     rotas, regras = cfg["rotas"], cfg.get("regras", {})
     moeda = cfg.get("moeda", "BRL")
     tp, serp = os.getenv("TRAVELPAYOUTS_TOKEN"), os.getenv("SERPAPI_KEY")
     if not tp and not serp:
-        erros.append("Sem TRAVELPAYOUTS_TOKEN nem SERPAPI_KEY no .env — só os blogs foram lidos.")
+        erros.append("Sem TRAVELPAYOUTS_TOKEN nem SERPAPI_KEY — só os blogs foram lidos.")
     todas = []
+    por_rota = {r["nome"]: [] for r in rotas}
 
-    for rota in rotas:
-        print(f"\n▶ {rota['nome']}")
-        # 1) Aviasales varre os meses e acha as datas mais baratas
-        candidatos = []
-        if tp:
-            for origem in rota["origens"]:
-                for mes in rota["meses"]:
-                    try:
-                        achadas = fontes.aviasales(rota, origem, mes, tp, moeda)
-                        candidatos += achadas
-                        print(f"  Aviasales {origem} {mes}: {len(achadas)} preços")
-                    except Exception as e:
-                        erros.append(f"Aviasales {rota['nome']} {origem} {mes}: {e}")
-        todas += candidatos
+    # 1) Aviasales: varre todos os meses, de GRU e VCP, pra todos os destinos (grátis)
+    if tp:
+        tarefas = [(r, o, d, m) for r in rotas for o in r["origens"] for d in r["destinos"] for m in r["meses"]]
+        print(f"▶ Aviasales: {len(tarefas)} consultas")
 
-        # 2) Google Flights confirma as N melhores datas (economiza a cota grátis)
-        if serp:
-            datas = []
-            for o in sorted(candidatos, key=lambda o: o.preco):
-                k = (o.origem, o.ida, o.volta)
-                if k not in datas:
-                    datas.append(k)
-                if len(datas) >= regras.get("confirmar_no_google", 3):
-                    break
-            if not datas:  # sem Aviasales: testa uma data padrão de cada mês
-                for mes in rota["meses"][:regras.get("confirmar_no_google", 3)]:
-                    ida = date.fromisoformat(mes + "-15")
-                    datas.append((rota["origens"][0], ida, ida + timedelta(days=rota.get("noites_min", 7))))
-            for origem, ida, volta in datas:
-                try:
-                    achadas, insights = fontes.google_flights(rota, origem, ida, volta, serp, moeda)
-                    todas += achadas
-                    hist.salvar_tipico(rota["nome"], insights.get("typical_price_range"))
-                    menor = min((o.preco for o in achadas), default=None)
-                    print(f"  Google {origem} {ida}→{volta}: menor {alertas.brl(menor) if menor else '—'}"
-                          f"  (nível: {insights.get('price_level', '?')})")
-                except Exception as e:
-                    erros.append(f"Google Flights {rota['nome']} {origem} {ida}: {e}")
+        def uma(t):
+            r, o, d, m = t
+            try:
+                return r["nome"], fontes.aviasales(r, o, d, m, tp, moeda), None
+            except Exception as e:
+                return r["nome"], [], f"Aviasales {r['nome']} {o}→{d} {m}: {e}"
+
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for nome, achadas, erro in ex.map(uma, tarefas):
+                por_rota[nome] += achadas
+                if erro:
+                    erros.append(erro)
+        for r in rotas:
+            menor = min((o.preco for o in por_rota[r["nome"]]), default=None)
+            print(f"  {r['nome']:28} {len(por_rota[r['nome']]):4} preços   menor {alertas.brl(menor) if menor else '—'}")
+            todas += por_rota[r["nome"]]
+
+    # 2) Google Flights: cota grátis é curta, então confere só as rotas que mais importam nesta rodada:
+    #    metade = as que o Aviasales apontou como mais abaixo do normal; o resto = as que estão há mais tempo sem conferir.
+    if serp:
+        cota = regras.get("google_por_rodada", 4)
+
+        def desconto(r):
+            normal, _ = analise.preco_normal(r, hist)
+            menor = min((o.preco for o in por_rota[r["nome"]]), default=None)
+            return (1 - menor / normal) if (normal and menor) else -1
+
+        pelo_desconto = sorted(rotas, key=desconto, reverse=True)
+        escolhidas = [r for r in pelo_desconto if desconto(r) > 0][: (cota + 1) // 2]
+        for r in sorted(rotas, key=lambda r: hist.ultimo_google(r["nome"])):
+            if len(escolhidas) >= cota:
+                break
+            if r not in escolhidas:
+                escolhidas.append(r)
+
+        print(f"\n▶ Google Flights: {', '.join(r['nome'] for r in escolhidas)}")
+        for r in escolhidas:
+            cand = sorted(por_rota[r["nome"]], key=lambda o: o.preco)
+            if cand:
+                ida, volta = cand[0].ida, cand[0].volta
+            else:
+                ida = date.fromisoformat(r["meses"][1] + "-15")
+                volta = ida + timedelta(days=r["noites"][0] + 2)
+            try:
+                achadas, insights = fontes.google_flights(r, r["origens"], ida, volta, serp, moeda)
+                todas += achadas
+                hist.salvar_tipico(r["nome"], insights.get("typical_price_range"))
+                menor = min((o.preco for o in achadas), default=None)
+                print(f"  {r['nome']:28} {ida}→{volta}: menor {alertas.brl(menor) if menor else '—'}"
+                      f"  (Google diz: {insights.get('price_level', '?')}, típico {insights.get('typical_price_range')})")
+            except Exception as e:
+                erros.append(f"Google Flights {r['nome']} {ida}: {e}")
 
     # 3) Blogs de promoção
     if cfg.get("blogs"):
@@ -114,24 +155,29 @@ def demo(cfg):
     """Dados inventados pra ver o programa funcionando sem chave nenhuma."""
     random.seed(7)
     ofertas = []
-    hoje = date.today()
+    cias = ["Azul", "LATAM", "GOL", "American", "Copa", "United", "Avianca", "TAP", "Iberia"]
     for rota in cfg["rotas"]:
-        base = rota.get("preco_normal") or 3000
-        for _ in range(40):
-            ida = hoje + timedelta(days=random.randint(30, 180))
-            volta = ida + timedelta(days=random.randint(rota.get("noites_min", 5), rota.get("noites_max", 14)))
-            ofertas.append(Oferta(rota["nome"], random.choice(rota["origens"]), rota["destino"], ida, volta,
-                                  round(base * random.uniform(0.8, 1.35)), random.choice(["Aviasales", "Google Flights"]),
-                                  random.choice(["Azul", "LATAM", "American", "Copa", "GOL"]), random.randint(0, 2),
-                                  preco_cache=False))
-    ida = hoje + timedelta(days=75)
-    ofertas.append(Oferta("Orlando", "VCP", "MCO", ida, ida + timedelta(days=9), 1000, "Google Flights",
-                          "Azul", 0))
-    ofertas.append(Oferta("Orlando", "GRU", "MCO", ida + timedelta(days=20), ida + timedelta(days=30), 1690,
-                          "Aviasales", "LATAM", 1, preco_cache=True))
-    ofertas.append(Oferta("Miami", "?", "MIA", None, None, 1449, "Melhores Destinos",
+        base = rota.get("preco_normal") or rota.get("referencia") or 3000
+        for mes in rota["meses"]:
+            fator_mes = 1.35 if mes.endswith(("-12", "-01", "-07")) else 1.0
+            for _ in range(6):
+                ida = date.fromisoformat(mes + "-01") + timedelta(days=random.randint(0, 27))
+                volta = ida + timedelta(days=random.randint(*rota["noites"]))
+                ofertas.append(Oferta(rota["nome"], random.choice(rota["origens"]), random.choice(rota["destinos"]),
+                                      ida, volta, round(base * fator_mes * random.uniform(0.72, 1.3)),
+                                      random.choice(["Aviasales", "Google Flights"]), random.choice(cias),
+                                      random.randint(0, 2)))
+    def promo(nome, origem, dest, dias, noites, preco, fonte, cia, esc):
+        ida = date.today() + timedelta(days=dias)
+        ofertas.append(Oferta(nome, origem, dest, ida, ida + timedelta(days=noites), preco, fonte, cia, esc,
+                              preco_cache=fonte == "Aviasales"))
+    promo("Orlando", "VCP", "MCO", 75, 9, 1000, "Google Flights", "Azul", 0)
+    promo("Roma", "GRU", "FCO", 140, 12, 2790, "Aviasales", "TAP", 1)
+    promo("Salvador", "VCP", "SSA", 40, 5, 540, "Google Flights", "Azul", 0)
+    promo("Santiago", "GRU", "SCL", 60, 6, 990, "Aviasales", "Sky", 0)
+    ofertas.append(Oferta("Atenas", "?", "ATH", None, None, 3290, "Melhores Destinos",
                           link="https://www.melhoresdestinos.com.br/",
-                          titulo="Exemplo: voos para Miami a partir de R$ 1.449 ida e volta"))
+                          titulo="Exemplo: voos para Atenas a partir de R$ 3.290 ida e volta"))
     return ofertas
 
 
@@ -140,12 +186,12 @@ def demo_historico(cfg, hist):
     random.seed(3)
     agora = datetime.now()
     for rota in cfg["rotas"]:
-        base = rota.get("preco_normal") or 3000
+        base = rota.get("preco_normal") or rota.get("referencia") or 3000
         nivel = base * 1.05
         for d in range(60, 0, -1):
             nivel = max(base * 0.75, min(base * 1.3, nivel + random.uniform(-0.05, 0.05) * base))
             ida = date.today() + timedelta(days=60)
-            hist.salvar([Oferta(rota["nome"], rota["origens"][0], rota["destino"], ida, ida + timedelta(days=8),
+            hist.salvar([Oferta(rota["nome"], rota["origens"][0], rota["destinos"][0], ida, ida + timedelta(days=8),
                                 round(nivel), "Google Flights")], quando=agora - timedelta(days=d))
 
 
@@ -161,7 +207,7 @@ def main():
     if args.descobrir_chat:
         return alertas.descobrir_chat_id()
 
-    cfg = yaml.safe_load(open(AQUI / "config.yaml", encoding="utf-8"))
+    cfg = preparar(yaml.safe_load(open(AQUI / "config.yaml", encoding="utf-8")))
     hist = Historico(str(AQUI / ("demo.db" if args.demo else "historico.db")))
     erros = []
 
