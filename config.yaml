@@ -133,6 +133,21 @@ rotas:
     noites: [7, 21]
     palavras_blog: [atenas, grécia, grecia, santorini, mykonos]
 
+  # ---------------- Oriente Médio
+  - nome: Dubai
+    regiao: Oriente Médio
+    destinos: [DXB]                 # aeroporto principal (o DWC fica a ~45 km do centro)
+    referencia: 6500
+    noites: [5, 15]
+    palavras_blog: [dubai, emirados]
+
+  - nome: Doha (Catar)
+    regiao: Oriente Médio
+    destinos: [DOH]
+    referencia: 6500
+    noites: [5, 15]
+    palavras_blog: [doha, catar, qatar]
+
   # ---------------- Ásia
   - nome: Tóquio
     regiao: Ásia
