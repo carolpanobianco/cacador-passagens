@@ -16,6 +16,11 @@ from .modelos import Oferta
 
 TIMEOUT = 30
 
+CIAS = {"AD": "Azul", "LA": "LATAM", "JJ": "LATAM", "G3": "GOL", "AA": "American", "UA": "United",
+        "DL": "Delta", "CM": "Copa", "AV": "Avianca", "DM": "Arajet", "H2": "Sky", "AR": "Aerolíneas",
+        "B6": "JetBlue", "NK": "Spirit", "F9": "Frontier", "TP": "TAP", "IB": "Iberia", "AF": "Air France",
+        "KL": "KLM", "LH": "Lufthansa", "BA": "British", "EK": "Emirates", "QR": "Qatar", "TK": "Turkish"}
+
 
 def _data(txt):
     if not txt:
@@ -47,7 +52,7 @@ def aviasales(rota: dict, origem: str, mes: str, token: str, moeda="brl") -> lis
             rota=rota["nome"], origem=d.get("origin_airport") or origem,
             destino=d.get("destination_airport") or rota["destino"],
             ida=ida, volta=volta, preco=float(d["price"]), fonte="Aviasales",
-            cia=d.get("airline", ""),
+            cia=CIAS.get(d.get("airline", ""), d.get("airline", "")),
             escalas=(d.get("transfers") or 0) + (d.get("return_transfers") or 0),
             link="https://www.aviasales.com" + d["link"] if d.get("link") else "",
             preco_cache=True,
