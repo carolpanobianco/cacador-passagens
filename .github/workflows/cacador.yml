@@ -1,0 +1,79 @@
+# Roda o Caçador sozinho na nuvem do GitHub (grátis), 2x por dia (8h e 20h de Brasília),
+# mesmo com seu computador desligado, e publica o dashboard num link fixo (GitHub Pages).
+# As chaves ficam em: repositório > Settings > Secrets and variables > Actions
+name: Caçador de Passagens
+
+on:
+  schedule:
+    - cron: "7 11,23 * * *"     # 11h07 e 23h07 UTC = 8h07 e 20h07 em Brasília
+  workflow_dispatch: {}          # botão "Run workflow" pra rodar na hora
+
+permissions:
+  contents: write                # salvar o histórico de preços no próprio repositório
+  pages: write                   # publicar o dashboard
+  id-token: write
+
+concurrency:
+  group: cacador
+  cancel-in-progress: false
+
+jobs:
+  cacar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicar.outputs.page_url }}
+    env:
+      TZ: America/Sao_Paulo        # horários e datas do dashboard no fuso de Brasília
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Caça promoções
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA_APP: ${{ secrets.EMAIL_SENHA_APP }}
+          EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
+        run: python main.py
+
+      - name: Guarda o histórico de preços
+        if: always()
+        run: |
+          if [ -f historico.db ]; then
+            git config user.name  "cacador-bot"
+            git config user.email "cacador-bot@users.noreply.github.com"
+            git add historico.db
+            git diff --cached --quiet || git commit -m "histórico de preços $(date '+%d/%m %H:%M')"
+            git push || echo "não consegui salvar o histórico desta vez"
+          fi
+
+      - name: Monta a página
+        if: always()
+        run: |
+          mkdir -p site
+          [ -f dashboard.html ] && cp dashboard.html site/index.html
+          cp icone.png site/
+          touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+        if: always()
+
+      - uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: site
+
+      - name: Publica o dashboard
+        id: publicar
+        if: always()
+        uses: actions/deploy-pages@v4

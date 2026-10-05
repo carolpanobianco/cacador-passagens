@@ -1,0 +1,52 @@
+# ===========================================================
+#  CAÇADOR DE PASSAGENS — configuração
+#  Edite as rotas abaixo. Preços sempre IDA E VOLTA, por pessoa, em R$.
+# ===========================================================
+
+moeda: BRL
+adultos: 1
+
+rotas:
+  - nome: Orlando
+    origens: [GRU, VCP]          # Guarulhos e Viracopos
+    destino: MCO
+    preco_normal: 3000           # quanto costuma custar. Deixe vazio (~) pra o programa aprender sozinho
+    meses: ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"]
+    noites_min: 5
+    noites_max: 15
+    palavras_blog: [orlando, mco, disney]
+
+  - nome: Miami
+    origens: [GRU, VCP]
+    destino: MIA
+    preco_normal: 2800
+    meses: ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04"]
+    noites_min: 4
+    noites_max: 15
+    palavras_blog: [miami, fort lauderdale, flórida, florida]
+
+  # Exemplo de rota extra (tire o # pra ativar)
+  # - nome: Lisboa
+  #   origens: [GRU, VCP]
+  #   destino: LIS
+  #   preco_normal: 4500
+  #   meses: ["2027-03", "2027-04", "2027-05"]
+  #   noites_min: 7
+  #   noites_max: 20
+  #   palavras_blog: [lisboa, portugal]
+
+regras:
+  desconto_minimo: 0.40          # 40% abaixo do normal = PROMOÇÃO (3000 -> alerta abaixo de 1800)
+  desconto_imperdivel: 0.60      # 60% abaixo = IMPERDÍVEL / possível erro tarifário (3000 -> abaixo de 1200)
+  confirmar_no_google: 2         # quantas datas mais baratas de cada rota conferir no Google Flights por rodada
+  realertar_se_cair: 0.05        # só avisa de novo a mesma passagem se cair mais 5%
+
+blogs:                           # sites que garimpam promoções (sem chave, de graça)
+  - nome: Melhores Destinos
+    feed: https://www.melhoresdestinos.com.br/feed
+  - nome: Passagens Imperdíveis
+    feed: https://passagensimperdiveis.com.br/feed
+
+alertas:
+  telegram: true                 # precisa TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+  email: false                   # precisa EMAIL_* no .env
