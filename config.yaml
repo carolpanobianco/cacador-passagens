@@ -43,6 +43,15 @@ rotas:
     noites: [5, 18]
     palavras_blog: [los angeles, califórnia, california]
 
+  # ---------------- Sudeste
+  - nome: Rio de Janeiro
+    regiao: Sudeste
+    destinos: [RIO]                 # Santos Dumont (no centro) e Galeão
+    google: "SDU,GIG"
+    referencia: 600
+    noites: [2, 10]
+    palavras_blog: [rio de janeiro]
+
   # ---------------- Nordeste
   - nome: Salvador
     regiao: Nordeste
