@@ -42,7 +42,7 @@ def status_fontes(cfg, ofertas, erros, demo=False):
         if demo:
             return {"nome": nome, "status": "ok", "detalhe": f"{n} preços (exemplo)"}
         if chave_env and not os.getenv(chave_env):
-            return {"nome": nome, "status": "na", "detalhe": "sem chave no .env"}
+            return {"nome": nome, "status": "na", "detalhe": "falta cadastrar a chave"}
         if falhas and not n:
             return {"nome": nome, "status": "erro", "detalhe": f"{len(falhas)} falha(s)"}
         return {"nome": nome, "status": "ok", "detalhe": f"{n} preços" + (f", {len(falhas)} falha(s)" if falhas else "")}
